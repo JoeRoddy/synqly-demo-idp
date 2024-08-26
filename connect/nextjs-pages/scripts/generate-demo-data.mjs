@@ -1,36 +1,36 @@
 #!/usr/bin/env node
-import { Management, ManagementClient } from '@synqly/client-sdk'
-import { faker } from '@faker-js/faker'
-import { config } from 'dotenv'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { randomUUID } from 'node:crypto'
-import slug from 'slug'
+import { faker } from '@faker-js/faker';
+import { Management, ManagementClient } from '@synqly/client-sdk';
+import { config } from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import slug from 'slug';
 
 // Load env vars from .env.local
 config({
   path: resolve(dirname(fileURLToPath(import.meta.url)), '../.env.local'),
-})
+});
 
 const {
   SYNQLY_ORG_TOKEN,
   NEXT_PUBLIC_SYNQLY_API_ROOT,
   NEXT_PUBLIC_AUDIT_LOG_EXPORT_ID,
   NEXT_PUBLIC_SLACK_NOTIFICATIONS_ID,
+  NEXT_PUBLIC_SYNQLY_IDP_ID,
   DEMO_PREFIX,
-} = process.env
+} = process.env;
 
-const NUM_DEMO_ACCOUNTS = Number(process.env.NUM_DEMO_ACCOUNTS ?? 5)
+const NUM_DEMO_ACCOUNTS = Number(process.env.NUM_DEMO_ACCOUNTS ?? 5);
 
 const org = new ManagementClient({
   token: SYNQLY_ORG_TOKEN,
   environment: NEXT_PUBLIC_SYNQLY_API_ROOT,
-})
+});
 
-console.log('\nEnsuring demo accounts ...')
-await ensureAccounts(org, NUM_DEMO_ACCOUNTS)
+console.log('\nEnsuring demo accounts ...');
+await ensureAccounts(org, NUM_DEMO_ACCOUNTS);
 
-console.log('\nEnsuring demo integration points ...')
+console.log('\nEnsuring demo integration points ...');
 await ensureIntegrationPoints(org, [
   {
     // The name acts as a slug, or human friendly identifier. If not
@@ -72,45 +72,52 @@ await ensureIntegrationPoints(org, [
       prod: ['notifications_slack'],
     },
   },
-])
+  {
+    name: NEXT_PUBLIC_SYNQLY_IDP_ID,
+    fullname: 'Identity',
+    connector: 'identity',
+    // For this provider we only allow the Slack provider. This means
+    // Connect UI will go directly to the provider configuration screen,
+    // since there's no point showing a list of providers when there's only
+    // one. This can be used to create integration points for specific
+    // providers.
+    environments: {
+      test: ['*'],
+      prod: ['*'],
+    },
+  },
+]);
 
-console.log('\nDone. Run scripts/clean-demo-data.mjs to clean up.')
+console.log('\nDone. Run scripts/clean-demo-data.mjs to clean up.');
 
 /**
  * @param {ManagementClient} management
  * @param {Management.CreateIntegrationPointRequest[]} integrationPointsData
  */
 async function ensureIntegrationPoints(management, integrationPointsData) {
-  const demoList = [
-    NEXT_PUBLIC_AUDIT_LOG_EXPORT_ID,
-    NEXT_PUBLIC_SLACK_NOTIFICATIONS_ID,
-  ]
+  const demoList = [NEXT_PUBLIC_AUDIT_LOG_EXPORT_ID, NEXT_PUBLIC_SLACK_NOTIFICATIONS_ID, NEXT_PUBLIC_SYNQLY_IDP_ID];
   const { body: existingPoints } = await management.integrationPoints.list({
     filter: `name[in]${demoList}`,
-  })
+  });
 
-  console.log(`Found ${existingPoints.result.length} demo integration points`)
+  console.log(`Found ${existingPoints.result.length} demo integration points`);
   for (const integrationPoint of existingPoints.result) {
-    console.log(`- ${integrationPoint.fullname} (${integrationPoint.name})`)
+    console.log(`- ${integrationPoint.fullname} (${integrationPoint.name})`);
   }
 
   if (existingPoints.result.length < demoList.length) {
-    console.log(
-      `Creating ${demoList.length - existingPoints.result.length} new integration points ...`,
-    )
+    console.log(`Creating ${demoList.length - existingPoints.result.length} new integration points ...`);
     for (const data of integrationPointsData) {
-      const existing = existingPoints.result.find(
-        ({ name }) => name === data.name,
-      )
+      const existing = existingPoints.result.find(({ name }) => name === data.name);
 
       if (!existing) {
-        const { body, error } = await management.integrationPoints.create(data)
+        const { body, error } = await management.integrationPoints.create(data);
         if (error) {
-          throw error
+          throw error;
         }
 
-        const integrationPoint = body.result
-        console.log(`- ${integrationPoint.fullname} (${integrationPoint.id})`)
+        const integrationPoint = body.result;
+        console.log(`- ${integrationPoint.fullname} (${integrationPoint.id})`);
       }
     }
   }
@@ -124,35 +131,32 @@ async function ensureIntegrationPoints(management, integrationPointsData) {
 async function ensureAccounts(management, minCount) {
   const { body: existingAccounts } = await management.accounts.list({
     filter: `name[like]${DEMO_PREFIX}%`,
-  })
+  });
 
-  console.log(`Found ${existingAccounts.result.length} demo accounts`)
+  console.log(`Found ${existingAccounts.result.length} demo accounts`);
   for (const account of existingAccounts.result) {
-    console.log(`- ${account.fullname} (${account.id}}`)
+    console.log(`- ${account.fullname} (${account.id}}`);
   }
 
-  const additionalCount = minCount - existingAccounts.result.length
+  const additionalCount = minCount - existingAccounts.result.length;
 
   if (additionalCount > 0) {
-    console.log(`Creating ${additionalCount} new accounts ...`)
-    const accountNames = faker.helpers.uniqueArray(
-      faker.company.name,
-      additionalCount,
-    )
+    console.log(`Creating ${additionalCount} new accounts ...`);
+    const accountNames = faker.helpers.uniqueArray(faker.company.name, additionalCount);
 
     for (const fullname of accountNames) {
       const { body, error } = await management.accounts.create({
         name: `${DEMO_PREFIX}${slug(fullname)}`,
         fullname,
         environment: 'test',
-      })
+      });
 
       if (error) {
-        throw new Error('unable to create account', { cause: error })
+        throw new Error('unable to create account', { cause: error });
       }
 
-      const { account } = body.result
-      console.log(`- ${account.fullname} (${account.id})`)
+      const { account } = body.result;
+      console.log(`- ${account.fullname} (${account.id})`);
     }
   }
 }

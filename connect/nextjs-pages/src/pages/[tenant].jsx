@@ -1,10 +1,10 @@
-'use client'
-import { Header, Main } from '@/components/skeleton'
-import { Heading } from '@radix-ui/themes'
-import { ManagementClient } from '@synqly/client-sdk'
-import { IntegrationCard } from '@/components/integration-card'
+'use client';
+import { IntegrationCard } from '@/components/integration-card';
+import { Header, Main } from '@/components/skeleton';
+import { Heading } from '@radix-ui/themes';
+import { ManagementClient } from '@synqly/client-sdk';
 
-export { Page as default, getServerSideProps }
+export { Page as default, getServerSideProps };
 
 /** @param {import('next').GetServerSidePropsContext} context */
 async function getServerSideProps(context) {
@@ -17,7 +17,7 @@ async function getServerSideProps(context) {
   const client = new ManagementClient({
     token: process.env.SYNQLY_ORG_TOKEN,
     environment: process.env.NEXT_PUBLIC_SYNQLY_API_ROOT,
-  })
+  });
 
   // Typically in a multi-tenant application you'd have some identifier for
   // the tenant in your system. In this demo, that identifier is `tenant`.
@@ -34,15 +34,13 @@ async function getServerSideProps(context) {
   //
   // A more typical setup however might be to store away the Synqly account
   // id along with your other tenant details.
-  const { tenant } = context.query
-  const { body: account } = await client.accounts.get(
-    `${process.env.DEMO_PREFIX}${tenant}`,
-  )
+  const { tenant } = context.query;
+  const { body: account } = await client.accounts.get(`${process.env.DEMO_PREFIX}${tenant}`);
 
   if (!account) {
     return {
       notFound: true,
-    }
+    };
   }
 
   // Before we render the page, we need to exchange our SYNQLY_ORG_TOKEN for
@@ -66,12 +64,12 @@ async function getServerSideProps(context) {
         ids: [account.result.id],
       },
     },
-  })
+  });
 
   if (!tokenPair) {
     return {
       notFound: true,
-    }
+    };
   }
 
   return {
@@ -79,7 +77,7 @@ async function getServerSideProps(context) {
       token: tokenPair.result.primary.access.secret,
       account: serialize(account.result),
     },
-  }
+  };
 }
 
 function Page({ token, account }) {
@@ -100,8 +98,7 @@ function Page({ token, account }) {
           account={account}
           token={token}
         >
-          Audit Logs are retained for 24 hours. Add an integration to store them
-          longer.
+          Audit Logs are retained for 24 hours. Add an integration to store them longer.
         </IntegrationCard>
         <IntegrationCard
           integrationPointName={process.env.NEXT_PUBLIC_SLACK_NOTIFICATIONS_ID}
@@ -112,11 +109,19 @@ function Page({ token, account }) {
         >
           This integration point only supports Slack as the provider.
         </IntegrationCard>
+        <IntegrationCard
+          integrationPointName={process.env.NEXT_PUBLIC_SYNQLY_IDP_ID}
+          title="Identity"
+          account={account}
+          token={token}
+        >
+          Identity ___ My new integration point
+        </IntegrationCard>
       </Main>
     </>
-  )
+  );
 }
 
 function serialize(obj) {
-  return obj != null ? JSON.parse(JSON.stringify(obj)) : null
+  return obj != null ? JSON.parse(JSON.stringify(obj)) : null;
 }
